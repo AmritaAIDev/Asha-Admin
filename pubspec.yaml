@@ -1,0 +1,46 @@
+name: asha_admin
+description: "Asha admin console: organizations, counselors, contacts and risk-alert delivery log."
+publish_to: "none"
+
+version: 0.1.0+1
+
+environment:
+  # Same SDK floor as Asha_Frontend so both build with one Flutter install.
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  # Same versions as Asha_Frontend.
+  go_router: ^16.0.0
+  http: ^1.2.1
+  shared_preferences: ^2.2.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  # Fonts are bundled (no google_fonts download at runtime) so the console
+  # renders the same offline, behind proxies and on first paint.
+  fonts:
+    - family: PlayfairDisplay
+      fonts:
+        - asset: assets/fonts/PlayfairDisplay-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/PlayfairDisplay-Bold.ttf
+          weight: 700
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
