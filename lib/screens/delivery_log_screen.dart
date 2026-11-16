@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../api/console_api.dart';
 import '../app/scope.dart';
@@ -17,11 +18,19 @@ class DeliveryLogScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageHeader(
+        PageHeader(
           title: 'Delivery log',
           subtitle:
               'Every alert and test message, one row per recipient and channel. Message text isn’t shown '
-              'here; every alert carried the student’s name and their last 5 messages.',
+              'here; every alert carried the student’s name and their last 5 messages. While SMS and WhatsApp '
+              'are simulated, the Message simulator shows what each phone received.',
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => context.go('/simulator'),
+              icon: const Icon(Icons.phone_android_outlined, size: 18),
+              label: const Text('Message simulator'),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         DeliveryLogView(initialOrganizationId: organizationId),

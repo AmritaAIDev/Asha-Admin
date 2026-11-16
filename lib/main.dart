@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'api/console_api.dart';
 import 'api/http_console_api.dart';
 import 'api/mock_console_api.dart';
-import 'api/token_store.dart';
+import 'api/prefs_token_store.dart';
 import 'app/config.dart';
 import 'app/router.dart';
 import 'app/scope.dart';
@@ -19,7 +19,7 @@ Future<void> main() async {
 
   final ConsoleApi api = AppConfig.useMock
       ? MockConsoleApi()
-      : HttpConsoleApi(baseUrl: AppConfig.normalizedBaseUrl, tokens: PrefsTokenStore());
+      : HttpConsoleApi(baseUrl: AppConfig.apiBaseUrl, tokens: PrefsTokenStore());
   final session = ConsoleSession(api);
   await session.restore();
 

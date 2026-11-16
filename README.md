@@ -7,9 +7,9 @@ watch the delivery log.
 It is a Flutter web app, separate from `Asha_Frontend`, and talks to the same Django backend
 (`Asha_Backend`).
 
-> **The backend for this does not exist yet.** See [`docs/BACKEND_CHANGES.md`](docs/BACKEND_CHANGES.md)
-> for every model, endpoint and rule the backend needs. Until those exist, run the console with
-> sample data (`USE_MOCK=true`).
+> The backend for this is in Asha_Backend (`/api/console/`, the `organizations` app). Status and
+> what is still open (real SMS / WhatsApp gateways): [`docs/BACKEND_CHANGES.md`](docs/BACKEND_CHANGES.md).
+> `USE_MOCK=true` still runs the console on sample data with no backend.
 
 ## Run it
 
@@ -23,12 +23,25 @@ flutter pub get
 # Sample data, no backend needed
 flutter run -d chrome --web-port 6003 --dart-define=USE_MOCK=true
 
-# Against local Django (docker compose up in Asha_Backend)
-flutter run -d chrome --web-port 6003 --dart-define=API_BASE_URL=http://localhost:8000
+# Against local Django (docker compose up in Asha_Backend); localhost → localhost:8000 automatically
+flutter run -d chrome --web-port 6003
 
-# Production build
-flutter build web --release --dart-define=API_BASE_URL=https://asha-be.amritaai.org
+# Release build served at /console/ next to the API (Caddy tunnel or GCP Nginx)
+flutter build web --release --base-href /console/
 ```
+
+**Which server it talks to** follows Asha_Frontend's rules (`lib/app/config.dart`):
+`--dart-define=API_BASE_URL` wins; served under `/console/` → the page's own origin (same door as
+`/api/`); opened from `localhost` → `http://localhost:8000`; otherwise the committed URL
+(`https://asha-be.amritaai.org`, same as Asha_Frontend). The login screen shows the server it uses.
+
+**Where it is served:** local tunnel `http://localhost:5500/console/` (and the ngrok URL + `/console/`),
+see `Asha_Backend/docs/LOCAL_NGROK_TUNNEL.md`; GCP Nginx snippet in
+`Asha_Backend/docs/GCP_DEPLOYMENT_CONFIGURATION.md`. `/admin/` stays Django's admin.
+
+**Connection to Asha_Frontend:** the code you give a college in the console is what students type in the
+"College code" field when they register (app and website) or on their Profile screen. Their risk alerts
+then go to that college's counselor and contacts, and show up in this console's delivery log.
 
 Running `flutter create .` once is safe: it only adds files that are missing and doesn't overwrite
 `lib/`, `web/index.html` or `pubspec.yaml`.
@@ -36,12 +49,13 @@ Running `flutter create .` once is safe: it only adds files that are missing and
 **Sample data sign-in:** any username, password `demo1234`. Username `student` shows the
 "no console access" error. Five wrong passwords lock sign-in for 15 minutes. Simulated delivery: a
 number ending in **0** fails on WhatsApp ("number not on WhatsApp"), and one ending in **00** also
-fails on SMS. Reloading the page resets everything.
+fails on SMS. Reloading the page resets everything. The **Message simulator** page shows what each phone received (sample alerts included).
 
-**Against the real backend:** sign in with an account that has `is_staff = True`
-(`python manage.py createsuperuser` in Asha_Backend). The backend must return `is_staff` from
-`GET /api/auth/me/` and allow the console's origin in `CORS_ALLOWED_ORIGINS` (items A1 and A5 in
-the backend changes doc).
+**Against the real backend:** run `docker compose up -d --build` and `migrate` in Asha_Backend, then
+sign in with an account that has `is_staff = True` (`python manage.py createsuperuser`). Port 6003 is
+already allowed by CORS. SMS and WhatsApp go to the backend's **simulator** by default (nothing reaches a phone);
+open **Message simulator** in the console to see what each number received. To check the whole flow from a terminal:
+`dart run tool/live_check.dart http://localhost:8000 <staff-user> <password>` (creates a test college).
 
 ## Screens (storyboard frames)
 
@@ -58,6 +72,7 @@ the backend changes doc).
 | `/organizations/:id` | Active organization: Overview / Details / Contacts / Counselors / Alert channels / Log tabs | A9 |
 | `/log` | Delivery log, red banner for failed High alerts, Resend | A10, A11 |
 | `/counselors`, `/counselors/:id` | Counselors list and detail; deactivation blocked for an only primary | A12 |
+| `/simulator` | Message simulator: each number that got a simulated SMS / WhatsApp and what its phone shows (alerts and tests) | — |
 
 A **Draft** organization always opens in the 5-step setup, on the step after the last one saved.
 An **Active** or **Inactive** organization opens on tabs; the same forms are used, with a
@@ -78,7 +93,7 @@ lib/
   utils/validators.dart        phone, code, email rules (mirror the backend)
   screens/                     login, organizations, org/ (steps + tabs), counselors/, delivery log
   widgets/                     shell (sidebar), tables, chips, banners, log table
-docs/BACKEND_CHANGES.md        what the backend has to add (nothing changed there yet)
+docs/BACKEND_CHANGES.md        backend changes for the console (status + original spec)
 tool/check_logic.dart          plain-Dart checks for validators, models and mock rules
 ```
 

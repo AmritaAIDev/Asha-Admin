@@ -73,17 +73,23 @@ class Assignment {
 }
 
 class LastTest {
-  const LastTest({required this.at, required this.sms, this.whatsapp});
+  const LastTest({required this.at, required this.sms, this.whatsapp, this.email});
   final DateTime? at;
   final String sms;
   final String? whatsapp;
+  final String? email;
 
   factory LastTest.fromJson(Object? json) {
     final m = asMap(json);
-    return LastTest(at: asDate(m['at']), sms: asString(m['sms']), whatsapp: asNullableString(m['whatsapp']));
+    return LastTest(
+      at: asDate(m['at']),
+      sms: asString(m['sms']),
+      whatsapp: asNullableString(m['whatsapp']),
+      email: asNullableString(m['email']),
+    );
   }
 
-  Map<String, dynamic> toJson() => {'at': at?.toIso8601String(), 'sms': sms, 'whatsapp': whatsapp};
+  Map<String, dynamic> toJson() => {'at': at?.toIso8601String(), 'sms': sms, 'whatsapp': whatsapp, 'email': email};
 }
 
 class Counselor {

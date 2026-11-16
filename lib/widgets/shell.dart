@@ -138,6 +138,7 @@ class _Sidebar extends StatelessWidget {
           item('Organizations', Icons.apartment_outlined, '/organizations'),
           item('Counselors', Icons.people_outline, '/counselors'),
           item('Delivery log', Icons.receipt_long_outlined, '/log'),
+          item('Message simulator', Icons.phone_android_outlined, '/simulator'),
           const Spacer(),
           const Divider(color: Colors.white24),
           const SizedBox(height: 12),

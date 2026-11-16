@@ -1,20 +1,36 @@
-# Asha Admin: backend changes needed
+# Asha Admin: backend changes
 
-Checked against `D:\work\Asha_Backend` on 4 Nov 2026. **No backend code has been changed.**
-Sources: *Asha Phase 1 — Implementation Plan* (doc) and *Asha Alerts Storyboard* (console designs A1–A12).
+First written 4 Nov 2026 as a gap list. **Implemented on 6 Nov 2026** in Asha_Backend and Asha_Frontend,
+except the real SMS and WhatsApp gateways, which are left open (see the status table). **7 Nov 2026:** a message
+simulator replaces them for now (see the status table).
+How it runs: `Asha_Backend/docs/RISK_ALERTS.md`. Endpoints: `Asha_Backend/docs/API_ENDPOINTS.md`.
 
-**Summary.** None of the admin-console backend exists yet. There is no `organizations` app, no
-`/api/console/` route, no Celery app, no risk events and no SMS/WhatsApp code. Login, token refresh,
-the error format, Redis and the `is_staff` flag already exist and are reused. Asha_Admin can run
-today against an in-memory mock (`USE_MOCK=true`) that enforces every rule below, so UI work does
-not have to wait for the backend.
+## Status
 
-Tags used below:
+| Area | Status |
+|---|---|
+| Auth: `is_staff` on `/api/auth/me/` (read-only), staff blocked on `/api/auth/password/change/`, login lockout, CORS for port 6003 | Done |
+| `organizations` app: models, migrations, Django admin | Done |
+| `/api/console/*` (organizations, contacts, counselors, readiness, test alerts, activate, log, resend) | Done; Asha_Admin's real HTTP client passes a live end-to-end check (`tool/live_check.dart`) |
+| `/api/internal/risk-events/`, Celery app + `worker` service, alert jobs, retries at 1/5/15 min, repeat window, pilot switch | Done |
+| Message builder (name, ASH ref, last 5 messages × 120 chars) | Done |
+| FastAPI `report_safety_state` tool + prompt add-on, background check on streaming voice turns | Done, **behind `SAFETY_REPORTING_ENABLED` (off)** |
+| Student linking: code at registration (app + website), Profile "College" row, `consent_version`, `link_students_by_college` command | Done |
+| Bug fixed on the way: `Asha_Django/api_errors.py` dropped errors for a field named `code` | Done |
+| Message simulator (7 Nov): `simulator` provider (default), `SimulatedMessage`, `GET /api/console/simulator/`, `GET\|DELETE /api/console/simulator/messages/`, console page **Message simulator** | Done; used instead of real SMS / WhatsApp |
+| Real SMS gateway (DLT) and WhatsApp (Meta/BSP) providers, delivery webhooks | **Still open**: plug in at `organizations/alerts/providers.py` |
+| Audit log of console actions (A7) | Not done |
+| Clinical/legal sign-off: risk mapping, prompt add-on wording, consent text | Needed before turning the switches on |
 
-* **[Console]**: the console can't work against the real backend without it
-* **[Alerts]**: needed before real alerts are sent
-* **[Students]**: student-side linking (Asha_Frontend + backend)
-* **[Security]**: must be fixed before the console goes live
+Differences from the contract below, as built:
+
+* Channel errors come back as `errors.channels.medium` / `errors.channels.high`.
+* `/api/auth/password/change/` is refused only for staff accounts; it still has no verification for students (A3).
+* Until a real provider exists, `SMS_PROVIDER` / `WHATSAPP_PROVIDER` default to `simulator` (7 Nov): messages are saved
+  for the console's Message simulator page and reported Delivered, and nothing reaches a phone. The console says so
+  on that page; set `disabled` to make sends fail instead.
+
+The rest of this document is the original gap list and contract, kept as the reference spec.
 
 ---
 
@@ -92,6 +108,7 @@ Register every model in Django admin too.
 | status | choices **`draft`**, `active`, `inactive` | default **draft** (D4) |
 | setup_step | SmallInt 1–5 | highest setup step saved, so a Draft reopens on the next step. *new* |
 | medium_sms, medium_whatsapp, high_sms, high_whatsapp | Boolean, default true | at least one per level (D5). Exposed as `channels` |
+| medium_email, high_email | Boolean, default true | Email channel (migration 0003). Exposed as `channels.<level>.email`; a client that leaves `email` out keeps the stored value |
 | created_by | FK User SET_NULL | |
 | created_at, updated_at, activated_at | DateTime | |
 
@@ -213,7 +230,7 @@ Organization:
 {
   "id": "…", "name": "North Campus College", "code": "NCC-01", "type": "college",
   "city": "Kochi", "state": "Kerala", "notes": "", "status": "active",
-  "channels": {"medium": {"sms": true, "whatsapp": true}, "high": {"sms": true, "whatsapp": true}},
+  "channels": {"medium": {"sms": true, "whatsapp": true, "email": true}, "high": {"sms": true, "whatsapp": true, "email": true}},
   "primary_counselor": {"id": "…", "full_name": "Anjali Menon", "mobile": "+919847012345"},
   "backup_counselors": [{"id": "…", "full_name": "Joseph Varghese", "mobile": "+919847154321"}],
   "high_risk_contacts": [{"id": "…", "full_name": "Dr. Thomas Kurian", "mobile": "+919847066778"}],
@@ -238,7 +255,7 @@ Counselor (`is_only_primary` is true when this counselor is the organization's p
   "consent_at": "2026-10-05T04:30:00Z", "is_active": true,
   "assignments": [{"organization": {"id": "…", "name": "North Campus College", "status": "active"},
                    "role": "primary", "is_only_primary": true}],
-  "last_test": {"at": "2026-11-04T04:30:00Z", "sms": "delivered", "whatsapp": "delivered"}
+  "last_test": {"at": "2026-11-04T04:30:00Z", "sms": "delivered", "whatsapp": "delivered", "email": "delivered"}
 }
 ```
 
@@ -326,6 +343,7 @@ Mostly as in the plan. Changes are in **bold**.
 | P11 | Webhooks `/api/webhooks/sms/` and `/api/webhooks/whatsapp/` (signature-checked) move `sent` to `delivered` or `failed`. **The console polls test results for 2 minutes, so webhooks must be live for test alerts to show Delivered** | new urls |
 | P12 | Backup check: reply contains the 112 / nearest-hospital wording but no tool call → log a warning and post S4 | FastAPI |
 | P13 | Prompt edits from the plan (section 3.1 escalation sentence, tool instructions) | `services/asha_system_prompt_revised.py` |
+| P10b | **Email channel**: same text as SMS / WhatsApp, subject = its first line, sent through Django SMTP (`EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD`, `EMAIL_ALERT_PROVIDER=smtp`) to every recipient with an email on file. `AlertDelivery.channel = "email"`, address stored in `phone`. Test runs also send email (`recipients[].email`, `email_address`) | `organizations/alerts/providers.py` (`SmtpEmailProvider`), `message.py` |
 | P14 | Env vars from the plan: `ALERTS_ENABLED`, `ALERT_PILOT_ORG_CODES`, `ALERT_REPEAT_WINDOW_HOURS`, `ALERT_MESSAGE_MAX_CHARS`, `SMS_*`, `WHATSAPP_*`, `ALERT_WEBHOOK_SECRET` | `.env` |
 
 Start provider approvals (DLT entity, sender ID, templates; WhatsApp business verification and

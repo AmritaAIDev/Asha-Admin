@@ -8,6 +8,7 @@ import '../screens/delivery_log_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/org/org_page.dart';
 import '../screens/organizations_screen.dart';
+import '../screens/simulator_screen.dart';
 import '../widgets/shell.dart';
 import 'session.dart';
 
@@ -70,6 +71,7 @@ GoRouter createRouter(ConsoleSession session) {
             path: '/log',
             builder: (_, s) => DeliveryLogScreen(organizationId: s.uri.queryParameters['org']),
           ),
+          GoRoute(path: '/simulator', builder: (_, _) => const SimulatorScreen()),
         ],
       ),
     ],

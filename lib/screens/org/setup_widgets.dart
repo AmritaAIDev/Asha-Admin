@@ -4,6 +4,7 @@ import '../../api/console_api.dart';
 import '../../theme/console_theme.dart';
 import '../../utils/validators.dart';
 import '../../widgets/common.dart';
+import '../../widgets/sim_bubble.dart';
 
 /// Sections of an organization page. The first five are the setup steps.
 enum OrgSection {
@@ -180,8 +181,8 @@ class TestResultsTable extends StatelessWidget {
   const TestResultsTable({super.key, required this.run});
   final TestRun run;
 
-  static Widget statusText(ChannelResult? r) {
-    if (r == null) return const Text('No WhatsApp number', style: Tx.body2);
+  static Widget statusText(ChannelResult? r, {String missing = 'No WhatsApp number'}) {
+    if (r == null) return Text(missing, style: Tx.body2);
     switch (r.status) {
       case DeliveryStatus.delivered:
         return const Text(
@@ -204,13 +205,14 @@ class TestResultsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConsoleTable(
-      minWidth: 760,
+      minWidth: 900,
       columns: const [
         Col('Recipient', flex: 3),
         Col('Role', flex: 4),
         Col('Number', flex: 3),
         Col('SMS', flex: 2),
-        Col('WhatsApp', flex: 4),
+        Col('WhatsApp', flex: 3),
+        Col('Email', flex: 3),
       ],
       empty: 'No recipients yet.',
       rows: [
@@ -221,6 +223,7 @@ class TestResultsTable extends StatelessWidget {
             Text(formatPhone(r.phone), style: Tx.body1),
             statusText(r.sms),
             statusText(r.whatsapp),
+            statusText(r.email, missing: 'No email on file'),
           ],
       ],
     );
@@ -243,7 +246,12 @@ String? testRunNote(TestRun run) {
   return null;
 }
 
-Future<void> showTestRunDialog(BuildContext context, TestRun run, {String title = 'Test alerts sent'}) {
+Future<void> showTestRunDialog(
+  BuildContext context,
+  TestRun run, {
+  String title = 'Test alerts sent',
+  List<SimMessage> mock = const [],
+}) {
   final note = testRunNote(run);
   // A plain Dialog, not AlertDialog: AlertDialog sizes its content with
   // IntrinsicWidth, which the table's LayoutBuilder doesn't support.
@@ -265,6 +273,7 @@ Future<void> showTestRunDialog(BuildContext context, TestRun run, {String title 
               const SizedBox(height: 16),
               TestResultsTable(run: run),
               if (note != null) ...[const SizedBox(height: 12), Text(note, style: Tx.small)],
+              if (mock.isNotEmpty) ...[const SizedBox(height: 20), MockMessagesSection(messages: mock)],
               const SizedBox(height: 20),
               Align(
                 alignment: Alignment.centerRight,

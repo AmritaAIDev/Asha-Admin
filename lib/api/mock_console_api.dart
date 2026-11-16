@@ -100,6 +100,7 @@ class MockConsoleApi implements ConsoleApi {
   final Map<String, _Org> _orgs = {};
   final Map<String, _Counselor> _counselors = {};
   final List<_Row> _log = [];
+  final List<SimMessage> _sim = []; // newest first
   int _seq = 100;
   AdminUser? _user;
   int _failedLogins = 0;
@@ -520,6 +521,22 @@ class MockConsoleApi implements ConsoleApi {
       final sms = _simulate(Channel.sms, r.phone);
       final wa = r.whatsapp == null ? null : _simulate(Channel.whatsapp, r.whatsapp!);
       results.add(TestRecipient(name: r.name, roleLabel: r.role, phone: r.phone, sms: sms, whatsapp: wa));
+      final label = r.kind == 'contact' ? 'contact' : r.role.split(' ').first.toLowerCase();
+      final text = _testText(orgName);
+      _record(Channel.sms, r.phone, sms, name: r.name, label: label, org: orgName, level: AlertLevel.test, at: now, text: text);
+      if (wa != null) {
+        _record(
+          Channel.whatsapp,
+          r.whatsapp!,
+          wa,
+          name: r.name,
+          label: label,
+          org: orgName,
+          level: AlertLevel.test,
+          at: now,
+          text: text,
+        );
+      }
       _log.insert(
         0,
         _Row(
@@ -765,6 +782,19 @@ class MockConsoleApi implements ConsoleApi {
       throw _err(400, 'no_number', 'This recipient has no ${old.channel.label} number on file any more.');
     }
     final result = _simulate(old.channel, phone);
+    _record(
+      old.channel,
+      phone,
+      result,
+      name: entry.row.recipientName ?? '',
+      label: entry.row.recipientLabel ?? '',
+      org: entry.row.organizationName,
+      level: entry.row.level,
+      at: _now,
+      text: entry.row.level == AlertLevel.test
+          ? _testText(entry.row.organizationName)
+          : _alertText(entry.row.level, entry.row.organizationName ?? '', entry.row.studentRef ?? '', _now),
+    );
     final newRow = LogRow(
       id: _id('row'),
       time: _now,
@@ -794,6 +824,103 @@ class MockConsoleApi implements ConsoleApi {
         resolved: true,
       );
     }
+  });
+
+  // ── Message simulator ─────────────────────────────────────────────────
+  // The mock always applies the failure rules (number ending 0: not on
+  // WhatsApp; 00: also fails on SMS), like _simulate above.
+
+  static String _hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  String _testText(String? orgName) =>
+      'TEST · Asha alert${orgName == null ? '' : ' — $orgName'}\n'
+      'This is a test message from the Asha admin console. No student is involved.\n'
+      'If you received this, alerts will reach you on this number.';
+
+  /// Same layout as the backend's alert text, with made-up sample lines.
+  String _alertText(AlertLevel level, String orgName, String ref, DateTime at) {
+    final lines = [
+      'Asha ${level.name.toUpperCase()} alert — $orgName',
+      'Student: Sample Student · Ref $ref · ${at.day}/${at.month} ${_hhmm(at)}',
+      'Last 5 messages:',
+      for (var i = 1; i <= 5; i++)
+        '$i. ${i.isOdd ? 'Student' : 'Asha'} ${_hhmm(at.subtract(Duration(minutes: 6 - i)))}: (sample message $i)',
+      'Please follow your safety SOP.',
+    ];
+    return lines.join('\n');
+  }
+
+  void _record(
+    Channel ch,
+    String phone,
+    ChannelResult r, {
+    required String name,
+    required String label,
+    required String? org,
+    required AlertLevel level,
+    required String text,
+    required DateTime at,
+  }) {
+    _sim.insert(
+      0,
+      SimMessage(
+        id: _id('sim'),
+        createdAt: at,
+        channel: ch,
+        phone: phone,
+        recipientName: name,
+        recipientLabel: label,
+        organizationName: org ?? '',
+        level: level,
+        text: text,
+        delivered: r.status != DeliveryStatus.failed,
+        error: r.status == DeliveryStatus.failed ? '${r.error} (simulated)' : null,
+      ),
+    );
+  }
+
+  @override
+  Future<SimulatorStatus> getSimulator() => _delay(() {
+    // _sim is newest first, so the first message seen per number is its latest.
+    final byPhone = <String, ({SimMessage latest, int count})>{};
+    for (final m in _sim) {
+      final cur = byPhone[m.phone];
+      byPhone[m.phone] = (latest: cur?.latest ?? m, count: (cur?.count ?? 0) + 1);
+    }
+    return SimulatorStatus(
+      enabled: true,
+      smsProvider: 'simulator',
+      whatsappProvider: 'simulator',
+      failures: true,
+      keepDays: 7,
+      phones: [
+        for (final e in byPhone.entries)
+          SimPhone(
+            phone: e.key,
+            name: e.value.latest.recipientName,
+            label: e.value.latest.recipientLabel,
+            organizationName: e.value.latest.organizationName,
+            count: e.value.count,
+            lastAt: e.value.latest.createdAt,
+          ),
+      ],
+    );
+  });
+
+  @override
+  Future<ApiPage<SimMessage>> listSimMessages({String? phone, int page = 1}) => _delay(() {
+    final all = phone == null ? _sim : _sim.where((m) => m.phone == phone).toList();
+    const size = 20;
+    final start = (page - 1) * size;
+    final slice = start >= all.length ? <SimMessage>[] : all.sublist(start, (start + size).clamp(0, all.length));
+    return ApiPage(results: slice, count: all.length, hasMore: start + size < all.length);
+  });
+
+  @override
+  Future<int> clearSimMessages({String? phone}) => _delay(() {
+    final before = _sim.length;
+    _sim.removeWhere((m) => phone == null || m.phone == phone);
+    return before - _sim.length;
   });
 
   // ── Sample data ───────────────────────────────────────────────────────
@@ -1023,5 +1150,50 @@ class MockConsoleApi implements ConsoleApi {
         studentRef: 'ASH-1B4C',
       ),
     );
+
+    // What the phones received for the sample alerts above (oldest last).
+    const ok = ChannelResult(status: DeliveryStatus.delivered);
+    final medAt = now.subtract(const Duration(minutes: 3));
+    final medText = _alertText(AlertLevel.medium, ncc.name, 'ASH-9Q2M', medAt);
+    _record(
+      Channel.sms,
+      anjali.mobile,
+      ok,
+      name: anjali.fullName,
+      label: 'primary',
+      org: ncc.name,
+      level: AlertLevel.medium,
+      text: medText,
+      at: medAt,
+    );
+    final highText = _alertText(AlertLevel.high, rac.name, 'ASH-7H3D', t1);
+    for (final ch in const [Channel.sms, Channel.whatsapp]) {
+      _record(
+        ch,
+        rahul.mobile,
+        ok,
+        name: rahul.fullName,
+        label: 'primary',
+        org: rac.name,
+        level: AlertLevel.high,
+        text: highText,
+        at: t1,
+      );
+      _record(
+        ch,
+        '+919443022110',
+        ChannelResult(
+          status: DeliveryStatus.failed,
+          error: ch == Channel.sms ? 'number unreachable' : 'number not on WhatsApp',
+        ),
+        name: dean.fullName,
+        label: 'contact',
+        org: rac.name,
+        level: AlertLevel.high,
+        text: highText,
+        at: t1,
+      );
+    }
+    _sim.sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
   }
 }

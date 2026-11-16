@@ -123,14 +123,16 @@ class LogTable extends StatelessWidget {
 /// Asks, then re-queues every failed channel of [row] to the number on file now.
 Future<bool> resendRow(BuildContext context, LogRow row) async {
   final failed = row.channels.where((c) => c.status == DeliveryStatus.failed).toList();
-  final numbers = failed.map((c) => '${c.channel.label} ${formatPhone(c.phone)}').join(', ');
+  final numbers = failed
+      .map((c) => '${c.channel.label} ${c.channel == Channel.email ? (c.phone ?? '') : formatPhone(c.phone)}')
+      .join(', ');
   final ok = await confirm(
     context,
     title: 'Resend to ${row.recipientName ?? 'recipient'}?',
     message:
-        'This resends ${failed.map((c) => c.channel.label).join(' and ')} to the number on file now. '
-        'Last attempt went to $numbers. If the number changed, update it on the organization’s '
-        'Contacts tab or the counselor’s page first. Old rows keep the old number.',
+        'This resends ${failed.map((c) => c.channel.label).join(' and ')} to the number or email on file now. '
+        'Last attempt went to $numbers. If it changed, update it on the organization’s '
+        'Contacts tab or the counselor’s page first. Old rows keep the old number or email.',
     confirmLabel: 'Resend',
   );
   if (!ok || !context.mounted) return false;
