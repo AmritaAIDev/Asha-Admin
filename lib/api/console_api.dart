@@ -10,11 +10,13 @@ import '../models/alerts.dart';
 import '../models/counselor.dart';
 import '../models/json.dart';
 import '../models/organization.dart';
+import '../models/simulator.dart';
 
 export '../models/alerts.dart';
 export '../models/counselor.dart';
 export '../models/json.dart';
 export '../models/organization.dart';
+export '../models/simulator.dart';
 
 /// Error from the API in the project-wide shape
 /// `{"detail", "code", "errors"?: {field: [msg]}}` (Asha_Django/api_errors.py).
@@ -147,4 +149,15 @@ abstract class ConsoleApi {
 
   /// Re-queues a failed delivery to the recipient's current number.
   Future<void> resendDelivery(String deliveryId);
+
+  // ── Message simulator ─────────────────────────────────────────────────
+  /// Whether SMS / WhatsApp are simulated, and every number that got a
+  /// simulated message (most recent first).
+  Future<SimulatorStatus> getSimulator();
+
+  /// Simulated messages, newest first; [phone] limits to one number.
+  Future<ApiPage<SimMessage>> listSimMessages({String? phone, int page = 1});
+
+  /// Deletes simulated messages (all, or one number's). Returns how many.
+  Future<int> clearSimMessages({String? phone});
 }

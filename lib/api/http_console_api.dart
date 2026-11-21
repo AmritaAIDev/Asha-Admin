@@ -83,6 +83,7 @@ class HttpConsoleApi implements ConsoleApi {
   Future<Object?> _post(String path, [Object? body]) => _send('POST', path, body: body ?? const {});
   Future<Object?> _patch(String path, Object body) => _send('PATCH', path, body: body);
   Future<Object?> _put(String path, Object body) => _send('PUT', path, body: body);
+  Future<Object?> _delete(String path, [Map<String, String>? q]) => _send('DELETE', path, query: q);
 
   // ── tokens ────────────────────────────────────────────────────────────
 
@@ -334,4 +335,19 @@ class HttpConsoleApi implements ConsoleApi {
   Future<void> resendDelivery(String deliveryId) async {
     await _post('$_c/alerts/$deliveryId/resend/');
   }
+
+  // ── Message simulator ─────────────────────────────────────────────────
+
+  @override
+  Future<SimulatorStatus> getSimulator() async => SimulatorStatus.fromJson(await _get('$_c/simulator/'));
+
+  @override
+  Future<ApiPage<SimMessage>> listSimMessages({String? phone, int page = 1}) async => ApiPage.fromJson(
+    await _get('$_c/simulator/messages/', {'phone': ?phone, 'page': '$page'}),
+    SimMessage.fromJson,
+  );
+
+  @override
+  Future<int> clearSimMessages({String? phone}) async =>
+      asInt(asMap(await _delete('$_c/simulator/messages/', {'phone': ?phone}))['deleted']);
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../api/console_api.dart';
 import '../../app/scope.dart';
 import '../../theme/console_theme.dart';
+import '../../utils/mock_messages.dart';
 import '../../widgets/common.dart';
 import '../delivery_log_screen.dart';
 import 'channels_step.dart';
@@ -121,7 +122,7 @@ class _OrgPageState extends State<OrgPage> {
   Future<void> _sendTests() async {
     try {
       final run = await context.api.sendOrgTestAlerts(_org!.id);
-      if (mounted) await showTestRunDialog(context, run);
+      if (mounted) await showTestRunDialog(context, run, mock: mockMessagesForTest(run, _org!.name));
     } catch (e) {
       if (mounted) showApiError(context, e);
     }

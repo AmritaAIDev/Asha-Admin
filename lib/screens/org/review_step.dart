@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../api/console_api.dart';
 import '../../app/scope.dart';
 import '../../theme/console_theme.dart';
+import '../../utils/mock_messages.dart';
 import '../../widgets/common.dart';
+import '../../widgets/sim_bubble.dart';
 import 'setup_widgets.dart';
 
 /// A8 · Step 5 Review & activate. Test messages go to every recipient; Activate
@@ -35,6 +38,7 @@ class ReviewStep extends StatefulWidget {
 class _ReviewStepState extends State<ReviewStep> {
   Readiness? _ready;
   TestRun? _test;
+  List<SimMessage> _mock = const []; // MOCK messages for the last test (not sent, not saved)
   Object? _error;
   bool _sending = false;
   Timer? _poll;
@@ -88,7 +92,10 @@ class _ReviewStepState extends State<ReviewStep> {
       final run = await context.api.sendOrgTestAlerts(widget.org.id);
       _polls = 0;
       if (!mounted) return;
-      setState(() => _test = run);
+      setState(() {
+        _test = run;
+        _mock = mockMessagesForTest(run, widget.org.name);
+      });
       await _load();
     } catch (e) {
       if (mounted) showApiError(context, e);
@@ -240,6 +247,9 @@ class _ReviewStepState extends State<ReviewStep> {
           TestResultsTable(run: test),
           const SizedBox(height: 10),
           Text('Last sent ${fmtDateTime(test.runAt)}.${note == null ? '' : ' $note'}', style: Tx.small),
+          const SizedBox(height: 6),
+          LinkText('See what each phone received in the Message simulator', onTap: () => context.go('/simulator')),
+          if (_mock.isNotEmpty) ...[const SizedBox(height: 20), MockMessagesSection(messages: _mock)],
         ],
         const SizedBox(height: 28),
         if (widget.org.status != OrgStatus.active)

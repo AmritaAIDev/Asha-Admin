@@ -160,6 +160,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       : const Text('Sign in'),
                 ),
                 const SizedBox(height: 16),
+                if (!AppConfig.useMock)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text('Server: ${Uri.parse(AppConfig.apiBaseUrl).host}', style: Tx.small),
+                  ),
                 const Text(
                   'After 5 wrong attempts sign-in is paused for 15 minutes. '
                   'You’ll be signed out after 30 minutes without activity.',

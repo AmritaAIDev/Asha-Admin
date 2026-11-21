@@ -220,6 +220,40 @@ Future<void> main() async {
   final skipped = (await api2.listLog(const LogFilter(range: LogRange.all, status: 'skipped'))).results;
   check(skipped.every((r) => r.outcome.isSkipped) && skipped.isNotEmpty, 'skipped filter');
 
+  // ── Message simulator ──
+  final sim = await api2.getSimulator();
+  check(sim.enabled && sim.phones.isNotEmpty, 'simulator lists numbers');
+  final deanPhone = sim.phones.firstWhere((p) => p.phone == '+919443022110');
+  check(deanPhone.name == 'Dean of Students' && deanPhone.count == 3, 'dean: 2 failed + 1 resent message');
+  final deanMsgs = (await api2.listSimMessages(phone: '+919443022110')).results;
+  check(deanMsgs.first.delivered && deanMsgs.first.channel == Channel.sms, 'newest is the delivered resend');
+  check(deanMsgs.where((m) => !m.delivered).length == 2, 'the two failed originals are kept');
+  check(deanMsgs.first.text.startsWith('Asha HIGH alert'), 'alert text shown in the simulator');
+  check(await api2.clearSimMessages(phone: '+919443022110') == 3, 'clear one number');
+  check((await api2.getSimulator()).phones.every((p) => p.phone != '+919443022110'), 'number gone after clear');
+  final parsed = SimMessage.fromJson({
+    'id': 'x',
+    'created_at': '2026-11-07T10:00:00Z',
+    'channel': 'whatsapp',
+    'phone': '+919886013579',
+    'level': 'high',
+    'text': 't',
+    'status': 'failed',
+    'error': 'number not on WhatsApp (simulated)',
+  });
+  check(parsed.channel == Channel.whatsapp && !parsed.delivered && parsed.level == AlertLevel.high, 'SimMessage JSON');
+  final st = SimulatorStatus.fromJson({
+    'enabled': true,
+    'sms_provider': 'simulator',
+    'whatsapp_provider': 'disabled',
+    'failures': false,
+    'keep_days': 7,
+    'phones': [
+      {'phone': '+919886013579', 'name': 'Rahul Iyer', 'count': 2, 'last_at': '2026-11-07T10:00:00Z'},
+    ],
+  });
+  check(st.phones.single.count == 2 && st.whatsappProvider == 'disabled', 'SimulatorStatus JSON');
+
   stdout.writeln('$_passes passed, $_failures failed');
   if (_failures > 0) exit(1);
 }

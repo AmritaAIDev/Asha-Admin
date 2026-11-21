@@ -222,7 +222,9 @@ class _Body extends StatelessWidget {
     String testLine() {
       if (lt == null) return 'No test sent yet';
       String s(String? v) => v == null ? '—' : DeliveryStatus.parse(v).label.toLowerCase();
-      return '${fmtDate(lt.at)} · SMS ${s(lt.sms)}${lt.whatsapp == null ? '' : ' · WhatsApp ${s(lt.whatsapp)}'}';
+      return '${fmtDate(lt.at)} · SMS ${s(lt.sms)}'
+          '${lt.whatsapp == null ? '' : ' · WhatsApp ${s(lt.whatsapp)}'}'
+          '${lt.email == null ? '' : ' · Email ${s(lt.email)}'}';
     }
 
     final contactCard = SectionCard(

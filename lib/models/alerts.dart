@@ -17,12 +17,17 @@ enum AlertLevel {
 
 enum Channel {
   sms('SMS'),
-  whatsapp('WhatsApp');
+  whatsapp('WhatsApp'),
+  email('Email');
 
   const Channel(this.label);
   final String label;
 
-  static Channel parse(Object? v) => v == 'whatsapp' ? Channel.whatsapp : Channel.sms;
+  static Channel parse(Object? v) => switch (v) {
+    'whatsapp' => Channel.whatsapp,
+    'email' => Channel.email,
+    _ => Channel.sms,
+  };
 }
 
 enum DeliveryStatus {
@@ -92,7 +97,7 @@ class LogChannel {
   final String? error;
   final DateTime? nextRetryAt;
 
-  /// Number used for this attempt (snapshot).
+  /// Number (or, for Email, the address) used for this attempt (snapshot).
   final String? phone;
 
   factory LogChannel.fromJson(Object? json) {
@@ -262,6 +267,8 @@ class TestRecipient {
     required this.phone,
     required this.sms,
     this.whatsapp,
+    this.email,
+    this.emailAddress,
   });
 
   final String name;
@@ -272,8 +279,16 @@ class TestRecipient {
   /// Null when the recipient has no WhatsApp number.
   final ChannelResult? whatsapp;
 
-  bool get reached => sms.status.reached || (whatsapp?.status.reached ?? false);
-  bool get pending => !sms.status.isFinal || (whatsapp != null && !whatsapp!.status.isFinal);
+  /// Null when the recipient has no email address on file.
+  final ChannelResult? email;
+  final String? emailAddress;
+
+  bool get reached =>
+      sms.status.reached || (whatsapp?.status.reached ?? false) || (email?.status.reached ?? false);
+  bool get pending =>
+      !sms.status.isFinal ||
+      (whatsapp != null && !whatsapp!.status.isFinal) ||
+      (email != null && !email!.status.isFinal);
 
   factory TestRecipient.fromJson(Object? json) {
     final m = asMap(json);
@@ -283,6 +298,8 @@ class TestRecipient {
       phone: asString(m['phone']),
       sms: ChannelResult.fromJson(m['sms']),
       whatsapp: m['whatsapp'] == null ? null : ChannelResult.fromJson(m['whatsapp']),
+      email: m['email'] == null ? null : ChannelResult.fromJson(m['email']),
+      emailAddress: asNullableString(m['email_address']),
     );
   }
 
@@ -292,6 +309,8 @@ class TestRecipient {
     'phone': phone,
     'sms': sms.toJson(),
     'whatsapp': whatsapp?.toJson(),
+    'email': email?.toJson(),
+    'email_address': emailAddress,
   };
 }
 

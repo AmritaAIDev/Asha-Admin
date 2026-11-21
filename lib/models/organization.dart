@@ -32,31 +32,38 @@ enum OrgType {
 }
 
 class LevelChannels {
-  const LevelChannels({this.sms = true, this.whatsapp = true});
+  const LevelChannels({this.sms = true, this.whatsapp = true, this.email = true});
   final bool sms;
   final bool whatsapp;
 
-  bool get any => sms || whatsapp;
+  /// Sent to each recipient who has an email address on file.
+  final bool email;
+
+  bool get any => sms || whatsapp || email;
 
   String get label {
-    if (sms && whatsapp) return 'SMS + WhatsApp';
-    if (sms) return 'SMS only';
-    if (whatsapp) return 'WhatsApp only';
-    return 'Not set';
+    final on = [if (sms) 'SMS', if (whatsapp) 'WhatsApp', if (email) 'Email'];
+    if (on.isEmpty) return 'Not set';
+    if (on.length == 1) return '${on.first} only';
+    return on.join(' + ');
   }
 
-  LevelChannels copyWith({bool? sms, bool? whatsapp}) =>
-      LevelChannels(sms: sms ?? this.sms, whatsapp: whatsapp ?? this.whatsapp);
+  LevelChannels copyWith({bool? sms, bool? whatsapp, bool? email}) => LevelChannels(
+    sms: sms ?? this.sms,
+    whatsapp: whatsapp ?? this.whatsapp,
+    email: email ?? this.email,
+  );
 
   factory LevelChannels.fromJson(Object? json) {
     final m = asMap(json);
     return LevelChannels(
       sms: asBool(m['sms'], fallback: true),
       whatsapp: asBool(m['whatsapp'], fallback: true),
+      email: asBool(m['email'], fallback: true),
     );
   }
 
-  Map<String, dynamic> toJson() => {'sms': sms, 'whatsapp': whatsapp};
+  Map<String, dynamic> toJson() => {'sms': sms, 'whatsapp': whatsapp, 'email': email};
 }
 
 /// Which channels each risk level uses. Low is recorded only (Phase 1).

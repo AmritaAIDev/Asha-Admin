@@ -6,8 +6,8 @@ import '../../theme/console_theme.dart';
 import '../../widgets/common.dart';
 import 'setup_widgets.dart';
 
-/// A7 · Step 4 Alert channels: SMS, WhatsApp or both for Medium and High
-/// (AC 1.8). Low is recorded only.
+/// A7 · Step 4 Alert channels: any mix of SMS, WhatsApp and Email for Medium
+/// and High (AC 1.8). Low is recorded only.
 class ChannelsStep extends StatefulWidget {
   const ChannelsStep({super.key, required this.org, required this.setup, required this.onSaved, this.onBack});
 
@@ -56,7 +56,7 @@ class _ChannelsStepState extends State<ChannelsStep> {
     Color border = C.border,
     bool error = false,
   }) => Container(
-    constraints: const BoxConstraints(minHeight: 220),
+    constraints: const BoxConstraints(minHeight: 260),
     padding: const EdgeInsets.all(22),
     decoration: BoxDecoration(
       color: C.surface,
@@ -157,6 +157,16 @@ class _ChannelsStepState extends State<ChannelsStep> {
                 ),
               ),
             ),
+            _box(
+              'Email',
+              _ch.medium.email,
+              (v) => setState(
+                () => _ch = AlertChannels(
+                  medium: _ch.medium.copyWith(email: v),
+                  high: _ch.high,
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -187,6 +197,16 @@ class _ChannelsStepState extends State<ChannelsStep> {
                 ),
               ),
             ),
+            _box(
+              'Email',
+              _ch.high.email,
+              (v) => setState(
+                () => _ch = AlertChannels(
+                  medium: _ch.medium,
+                  high: _ch.high.copyWith(email: v),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -198,8 +218,9 @@ class _ChannelsStepState extends State<ChannelsStep> {
         const SectionTitle(
           'How alerts are sent',
           subtitle:
-              'Choose at least one channel for each level. Both is recommended: '
-              'SMS is the fallback if WhatsApp fails.',
+              'Choose at least one channel for each level. SMS + WhatsApp is recommended: '
+              'SMS is the fallback if WhatsApp fails. Email goes to each recipient who has an '
+              'email address on file, with the same text.',
         ),
         const SizedBox(height: 20),
         LayoutBuilder(
@@ -255,7 +276,8 @@ class _ChannelsStepState extends State<ChannelsStep> {
               const SizedBox(height: 12),
               const Text(
                 'Medium and High alerts both include the student’s name and their last 5 messages with Asha, '
-                'each cut to 120 characters. Over SMS this arrives as one long message in several parts.',
+                'each cut to 120 characters. Over SMS this arrives as one long message in several parts. '
+                'By email the first line is the subject and the body is the same text.',
                 style: Tx.small,
               ),
             ],
